@@ -41,9 +41,9 @@ def open_bot_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-async def send_private(user_id: int, text: str, markup=None) -> bool:
+async def send_private(user_id: int, text: str, reply_markup=None) -> bool:
     try:
-        await bot.send_message(user_id, text, reply_markup=markup)
+        await bot.send_message(user_id, text, reply_markup=reply_markup)
         return True
     except TelegramForbiddenError:
         return False
@@ -268,3 +268,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
