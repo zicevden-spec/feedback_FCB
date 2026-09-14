@@ -1,6 +1,7 @@
 ﻿from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
+
 def get_main_menu_keyboard() -> InlineKeyboardMarkup:
     """Главное меню из 6 кнопок по ТЗ"""
     builder = InlineKeyboardBuilder()
@@ -12,4 +13,11 @@ def get_main_menu_keyboard() -> InlineKeyboardMarkup:
     builder.row(InlineKeyboardButton(text="🎥 Хочу оставить видеоотзыв", callback_data="video_review"))
     builder.row(InlineKeyboardButton(text="💰 Хочу узнать, где моя Агентская выплата", callback_data="agent_payout"))
 
+    return builder.as_markup()
+
+
+def get_cancel_keyboard() -> InlineKeyboardMarkup:
+    """Кнопка отмены для FSM-диалогов"""
+    builder = InlineKeyboardBuilder()
+    builder.row(InlineKeyboardButton(text="❌ Отменить", callback_data="cancel_fsm"))
     return builder.as_markup()
