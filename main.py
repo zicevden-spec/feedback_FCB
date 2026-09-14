@@ -5,6 +5,7 @@ from aiogram import Bot, Dispatcher, F
 from aiogram.exceptions import TelegramForbiddenError
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
+from aiogram.fsm.strategy import FSMStrategy
 from aiogram.types import (
     CallbackQuery,
     InlineKeyboardButton,
@@ -16,6 +17,7 @@ from aiogram.types import (
 
 from app import db
 from app.config import settings
+from app.faq import router as faq_router
 from app.keyboards import get_cancel_keyboard, get_main_menu_keyboard, get_phone_keyboard
 from app.states import LawyerStates, MyCaseStates
 
@@ -23,7 +25,13 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 bot = Bot(token=settings.BOT_TOKEN)
-dp = Dispatcher()
+# GLOBAL_USER: состояние диалога привязано к человеку, а не к чату.
+# Благодаря этому диалог, начатый кнопкой в группе, продолжается в личке.
+dp = Dispatcher(fsm_strategy=FSMStrategy.GLOBAL_USER)
+dp.include_router(faq_router)
+
+# FSM-обработчики реагируют только на сообщения в личке
+PRIVATE = F.chat.type == "private"
 
 BOT_USERNAME = "feedback_FCB_bot"
 LINK_CONSULT = "https://фцб.рф/яготов"
@@ -142,14 +150,14 @@ async def cb_my_case(callback: CallbackQuery, state: FSMContext):
         await callback.message.answer(f"{mention(callback.from_user)}, не могу написать вам в личку. Нажмите кнопку ниже, отправьте /start и выберите «Хочу узнать о моем деле» в меню:", reply_markup=open_bot_keyboard())
 
 
-@dp.message(MyCaseStates.waiting_fio)
+@dp.message(MyCaseStates.waiting_fio, PRIVATE)
 async def fsm_fio(message: Message, state: FSMContext):
     await state.update_data(fio=message.text)
     await state.set_state(MyCaseStates.waiting_city)
     await message.answer("Шаг 2/4. Напишите ваш город:", reply_markup=get_cancel_keyboard())
 
 
-@dp.message(MyCaseStates.waiting_city)
+@dp.message(MyCaseStates.waiting_city, PRIVATE)
 async def fsm_city(message: Message, state: FSMContext):
     await state.update_data(city=message.text)
     await state.set_state(MyCaseStates.waiting_phone)
@@ -160,11 +168,9 @@ async def fsm_city(message: Message, state: FSMContext):
     )
 
 
-# Обработчик КОНТАКТА (кнопка «Поделиться номером») — ВАЖНО: идёт ДО общего обработчика текста
-@dp.message(MyCaseStates.waiting_phone, F.contact)
+@dp.message(MyCaseStates.waiting_phone, F.contact, PRIVATE)
 async def fsm_phone_contact(message: Message, state: FSMContext):
-    phone = message.contact.phone_number
-    await state.update_data(phone=phone)
+    await state.update_data(phone=message.contact.phone_number)
     await state.set_state(MyCaseStates.waiting_question)
     await message.answer(
         "✅ Контакт получен!\n\nШаг 4/4. Напишите ваш вопрос в свободной форме:",
@@ -172,8 +178,7 @@ async def fsm_phone_contact(message: Message, state: FSMContext):
     )
 
 
-# Обработчик ТЕКСТА (если пользователь ввёл телефон вручную)
-@dp.message(MyCaseStates.waiting_phone)
+@dp.message(MyCaseStates.waiting_phone, PRIVATE)
 async def fsm_phone_text(message: Message, state: FSMContext):
     await state.update_data(phone=message.text)
     await state.set_state(MyCaseStates.waiting_question)
@@ -183,12 +188,11 @@ async def fsm_phone_text(message: Message, state: FSMContext):
     )
 
 
-@dp.message(MyCaseStates.waiting_question)
+@dp.message(MyCaseStates.waiting_question, PRIVATE)
 async def fsm_question(message: Message, state: FSMContext):
     data = await state.get_data()
     await state.clear()
 
-    # Публичный пост теперь содержит сам вопрос
     public_text = f"{mention(message.from_user)} задал вопрос юристу:\n\n«{message.text}»"
     public_msg = await post_to_chat(public_text)
     public_id = public_msg.message_id if public_msg else 0
@@ -206,7 +210,6 @@ async def fsm_question(message: Message, state: FSMContext):
     await message.answer(
         "✅ Вопрос передан юристу.\n"
         "Ответ придёт публично в общий чат — я вас уведомлю.",
-        reply_markup=get_cancel_keyboard(),
     )
 
     card = (
@@ -245,7 +248,7 @@ async def cb_lawyer_reply(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer("Напишите ответ следующим сообщением:")
 
 
-@dp.message(LawyerStates.waiting_answer)
+@dp.message(LawyerStates.waiting_answer, PRIVATE)
 async def fsm_lawyer_answer(message: Message, state: FSMContext):
     data = await state.get_data()
     qid = data.get("question_id")
@@ -310,8 +313,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-
-from app.faq import router as faq_router
-dp.include_router(faq_router)
-
