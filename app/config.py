@@ -9,7 +9,7 @@ class Settings:
     GOOGLE_CREDENTIALS_JSON: str = os.getenv("GOOGLE_CREDENTIALS_JSON")
     GOOGLE_SHEET_ID: str = os.getenv("GOOGLE_SHEET_ID")
     CHAT_ID: int = int(os.getenv("CHAT_ID", 0))
-    LAWYER_IDS: list = [int(x) for x in os.getenv("LAWYER_IDS", "").split(",") if x.strip()]
+    SUPER_ADMIN_IDS: list = [int(x) for x in os.getenv("SUPER_ADMIN_IDS", "").split(",") if x.strip()]
 
 
 settings = Settings()

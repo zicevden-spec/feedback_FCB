@@ -2,7 +2,6 @@
 
 
 class MyCaseStates(StatesGroup):
-    """Состояния для кнопки «Хочу узнать о моем деле»"""
     waiting_fio = State()
     waiting_city = State()
     waiting_phone = State()
@@ -10,7 +9,6 @@ class MyCaseStates(StatesGroup):
 
 
 class AgentPayoutStates(StatesGroup):
-    """Состояния для кнопки «Хочу узнать, где моя Агентская выплата»"""
     waiting_agent_fio = State()
     waiting_agent_phone = State()
     waiting_client_fio = State()
@@ -19,5 +17,8 @@ class AgentPayoutStates(StatesGroup):
 
 
 class LawyerStates(StatesGroup):
-    """Состояния юриста: написание ответа"""
     waiting_answer = State()
+
+
+class AdminStates(StatesGroup):
+    waiting_target = State()

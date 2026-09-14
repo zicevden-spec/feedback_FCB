@@ -15,7 +15,8 @@ from aiogram.types import (
     ReplyParameters,
 )
 
-from app import db
+from app import db, roles
+from app.admin import router as admin_router
 from app.config import settings
 from app.faq import router as faq_router
 from app.keyboards import get_cancel_keyboard, get_main_menu_keyboard, get_phone_keyboard
@@ -29,6 +30,7 @@ bot = Bot(token=settings.BOT_TOKEN)
 dp = Dispatcher(fsm_strategy=FSMStrategy.GLOBAL_USER)
 dp.include_router(faq_router)
 dp.include_router(payout_router)
+dp.include_router(admin_router)
 
 PRIVATE = F.chat.type == "private"
 
@@ -82,13 +84,13 @@ async def cmd_start(message: Message):
         f"Привет, {message.from_user.full_name}! 👋\n"
         "Я помощник чата клиентов ФЦБ.\n"
         "Выберите нужный раздел в меню ниже:",
-        reply_markup=get_main_menu_keyboard(),
+        reply_markup=get_main_menu_keyboard(roles.can_manage(message.from_user.id)),
     )
 
 
 @dp.message(Command("pin_menu"))
 async def cmd_pin_menu(message: Message):
-    if message.from_user.id not in settings.LAWYER_IDS:
+    if not roles.is_staff(message.from_user.id):
         await message.answer("⛔ Команда доступна только сотрудникам ФЦБ.")
         return
     msg = await bot.send_message(settings.CHAT_ID, PIN_TEXT, reply_markup=get_main_menu_keyboard())
@@ -216,11 +218,11 @@ async def fsm_question(message: Message, state: FSMContext):
         f"❓ {message.text}"
     )
     kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="✍️ Ответить на вопрос", callback_data=f"lawyer_reply:q:{qid}")]])
-    for lid in settings.LAWYER_IDS:
+    for lid in roles.card_recipients():
         try:
             await bot.send_message(lid, card, reply_markup=kb)
         except Exception as e:
-            logger.error("Не удалось отправить карточку юристу %s: %s", lid, e)
+            logger.error("Не удалось отправить карточку сотруднику %s: %s", lid, e)
 
 
 @dp.callback_query(F.data == "cancel_fsm")
@@ -236,7 +238,7 @@ async def cb_cancel(callback: CallbackQuery, state: FSMContext):
 async def cb_lawyer_reply(callback: CallbackQuery, state: FSMContext):
     parts = callback.data.split(":")
     kind, rid = parts[1], int(parts[2])
-    if callback.from_user.id not in settings.LAWYER_IDS:
+    if not roles.is_staff(callback.from_user.id):
         await callback.answer("Доступ запрещён", show_alert=True)
         return
     await callback.answer()
@@ -265,7 +267,7 @@ async def fsm_lawyer_answer(message: Message, state: FSMContext):
 async def cb_rewrite(callback: CallbackQuery, state: FSMContext):
     parts = callback.data.split(":")
     kind, rid = parts[1], int(parts[2])
-    if callback.from_user.id not in settings.LAWYER_IDS:
+    if not roles.is_staff(callback.from_user.id):
         await callback.answer("Доступ запрещён", show_alert=True)
         return
     await callback.answer()
@@ -278,7 +280,7 @@ async def cb_rewrite(callback: CallbackQuery, state: FSMContext):
 async def cb_publish(callback: CallbackQuery):
     parts = callback.data.split(":")
     kind, rid = parts[1], int(parts[2])
-    if callback.from_user.id not in settings.LAWYER_IDS:
+    if not roles.is_staff(callback.from_user.id):
         await callback.answer("Доступ запрещён", show_alert=True)
         return
     rec = db.get_record(kind, rid)
@@ -306,6 +308,7 @@ async def cb_publish(callback: CallbackQuery):
 
 async def main():
     db.init_db()
+    roles.seed_super_admins()
     logger.info("Запуск бота...")
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)

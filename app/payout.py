@@ -3,7 +3,7 @@ from aiogram.exceptions import TelegramForbiddenError
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message, ReplyKeyboardRemove
 
-from app import db
+from app import db, roles
 from app.config import settings
 from app.keyboards import get_cancel_keyboard, get_phone_keyboard
 from app.states import AgentPayoutStates
@@ -129,8 +129,9 @@ async def fsm_agent_question(message: Message, state: FSMContext):
         f"❓ {message.text}"
     )
     kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="✍️ Ответить", callback_data=f"lawyer_reply:p:{pid}")]])
-    for lid in settings.LAWYER_IDS:
+    for lid in roles.card_recipients():
         try:
             await message.bot.send_message(lid, card, reply_markup=kb)
         except Exception:
             pass
+

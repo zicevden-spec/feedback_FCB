@@ -2,8 +2,8 @@
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 
-def get_main_menu_keyboard() -> InlineKeyboardMarkup:
-    """Главное меню из 6 кнопок по ТЗ"""
+def get_main_menu_keyboard(is_manager: bool = False) -> InlineKeyboardMarkup:
+    """Главное меню из 6 кнопок по ТЗ. Админам добавляется кнопка админ-панели."""
     builder = InlineKeyboardBuilder()
 
     builder.row(InlineKeyboardButton(text="💬 Хочу получить консультацию и списать долги", callback_data="consultation"))
@@ -12,6 +12,9 @@ def get_main_menu_keyboard() -> InlineKeyboardMarkup:
     builder.row(InlineKeyboardButton(text="❓ Хочу узнать о банкротстве больше (FAQ)", callback_data="faq"))
     builder.row(InlineKeyboardButton(text="🎥 Хочу оставить видеоотзыв", callback_data="video_review"))
     builder.row(InlineKeyboardButton(text="💰 Хочу узнать, где моя Агентская выплата", callback_data="agent_payout"))
+
+    if is_manager:
+        builder.row(InlineKeyboardButton(text="⚙️ Админ панель", callback_data="admin_panel"))
 
     return builder.as_markup()
 
