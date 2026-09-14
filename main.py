@@ -126,7 +126,7 @@ async def cmd_pin_menu(message: Message):
 async def cb_consultation(callback: CallbackQuery):
     await callback.answer()
     await post_to_chat(f"{mention(callback.from_user)} хочет получить консультацию юриста по банкротству и перешел по ссылке фцб.рф/яготов")
-    ok = await send_private(callback.from_user.id, "Переходите по ссылке, чтобы оставить заявку на консультацию:\n" + LINK_CONSULT)
+    ok = await send_private(callback.from_user.id, "Нажмите кнопку ниже — она откроет лендинг «Я готов»:", reply_markup=get_url_keyboard("🚀 Перейти на лендинг «Я готов»", LINK_CONSULT)
     if not ok:
         await callback.message.answer(f"{mention(callback.from_user)}, не могу написать вам в личку. Нажмите кнопку ниже и отправьте боту /start:", reply_markup=open_bot_keyboard())
 
@@ -135,7 +135,7 @@ async def cb_consultation(callback: CallbackQuery):
 async def cb_refer_friend(callback: CallbackQuery):
     await callback.answer()
     await post_to_chat(f"{mention(callback.from_user)} хочет помочь близкому и перешел по ссылке фцб.рф/зовисвоих")
-    ok = await send_private(callback.from_user.id, "Переходите по ссылке, чтобы помочь близкому и заработать:\n" + LINK_REFER)
+    ok = await send_private(callback.from_user.id, "Нажмите кнопку ниже — она откроет лендинг «Зови своих»:", reply_markup=get_url_keyboard("🚀 Перейти на лендинг «Зови своих»", LINK_REFER)
     if not ok:
         await callback.message.answer(f"{mention(callback.from_user)}, не могу написать вам в личку. Нажмите кнопку ниже и отправьте боту /start:", reply_markup=open_bot_keyboard())
 
@@ -334,4 +334,5 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 

@@ -35,3 +35,10 @@ def get_phone_keyboard() -> ReplyKeyboardMarkup:
         resize_keyboard=True,
         one_time_keyboard=True,
     )
+
+
+def get_url_keyboard(text: str, url: str) -> InlineKeyboardMarkup:
+    """Кнопка мгновенного перехода по ссылке (лендинги, боты)."""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text=text, url=url)]]
+    )
