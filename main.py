@@ -5,7 +5,6 @@ from aiogram import Bot, Dispatcher, F
 from aiogram.exceptions import TelegramForbiddenError
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
-from aiogram.fsm.strategy import FSMStrategy
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message, ReplyParameters
 
 from app import db
@@ -17,9 +16,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 bot = Bot(token=settings.BOT_TOKEN)
-# Стратегия USER: состояние диалога привязано к человеку, а не к чату
-# (чтобы начатый в группе диалог продолжался в личке)
-dp = Dispatcher(fsm_strategy=FSMStrategy.USER)
+dp = Dispatcher()
 
 BOT_USERNAME = "feedback_FCB_bot"
 LINK_CONSULT = "https://фцб.рф/яготов"
@@ -35,7 +32,6 @@ PIN_TEXT = (
 
 
 def mention(user) -> str:
-    """@username или имя, если username скрыт."""
     return f"@{user.username}" if user.username else user.full_name
 
 
@@ -46,7 +42,6 @@ def open_bot_keyboard() -> InlineKeyboardMarkup:
 
 
 async def send_private(user_id: int, text: str, markup=None) -> bool:
-    """Пишет пользователю в личку. False — если боту запрещено писать первым."""
     try:
         await bot.send_message(user_id, text, reply_markup=markup)
         return True
@@ -55,15 +50,12 @@ async def send_private(user_id: int, text: str, markup=None) -> bool:
 
 
 async def post_to_chat(text: str):
-    """Публичный пост в чат. Возвращает сообщение или None."""
     try:
         return await bot.send_message(settings.CHAT_ID, text)
     except Exception as e:
         logger.error("Не удалось отправить пост в чат: %s", e)
         return None
 
-
-# ---------- Служебные команды ----------
 
 @dp.message(CommandStart())
 async def cmd_start(message: Message):
@@ -78,7 +70,6 @@ async def cmd_start(message: Message):
 
 @dp.message(Command("pin_menu"))
 async def cmd_pin_menu(message: Message):
-    """Служебная: публикует меню в чате и закрепляет его."""
     if message.from_user.id not in settings.LAWYER_IDS:
         await message.answer("⛔ Команда доступна только сотрудникам ФЦБ.")
         return
@@ -90,8 +81,6 @@ async def cmd_pin_menu(message: Message):
         logger.error("Не удалось закрепить: %s", e)
         await message.answer("⚠️ Меню опубликовано, но закрепить не удалось. Проверь права админа у бота в чате.")
 
-
-# ---------- Кнопки меню ----------
 
 @dp.callback_query(F.data == "consultation")
 async def cb_consultation(callback: CallbackQuery):
@@ -124,8 +113,6 @@ async def cb_video_review(callback: CallbackQuery):
 async def cb_stub(callback: CallbackQuery):
     await callback.answer("Раздел подключается следующим шагом 🔧", show_alert=True)
 
-
-# ---------- FSM клиента: «Хочу узнать о моем деле» ----------
 
 @dp.callback_query(F.data == "my_case")
 async def cb_my_case(callback: CallbackQuery, state: FSMContext):
@@ -203,8 +190,6 @@ async def cb_cancel(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
     await callback.message.answer("❌ Отменено. Меню остаётся доступным.")
 
-
-# ---------- Логика юриста: ответ и публикация ----------
 
 @dp.callback_query(F.data.startswith("lawyer_reply:"))
 async def cb_lawyer_reply(callback: CallbackQuery, state: FSMContext):
