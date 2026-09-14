@@ -15,7 +15,7 @@ from aiogram.types import (
     ReplyParameters,
 )
 
-from app import db, roles
+from app import db, roles, worktime
 from app.admin import router as admin_router
 from app.config import settings
 from app.faq import router as faq_router
@@ -33,6 +33,24 @@ dp.include_router(payout_router)
 dp.include_router(admin_router)
 
 PRIVATE = F.chat.type == "private"
+
+# Кнопки, которые не принимаются вне рабочих часов
+BLOCKED_OUTSIDE_HOURS = {"consultation", "my_case", "refer_friend", "video_review", "agent_payout"}
+
+
+@dp.callback_query.outer_middleware()
+async def worktime_guard(handler, event, data):
+    """Вне рабочих часов блокирует кнопки, требующие участия сотрудников."""
+    if event.data in BLOCKED_OUTSIDE_HOURS and not worktime.is_working_now():
+        await event.answer()
+        kb = InlineKeyboardMarkup(
+            inline_keyboard=[[InlineKeyboardButton(text="📚 Открыть FAQ", callback_data="faq")]]
+        )
+        ok = await send_private(event.from_user.id, worktime.closed_text(), reply_markup=kb)
+        if not ok:
+            await event.message.answer(worktime.closed_text(), reply_markup=kb)
+        return None
+    return await handler(event, data)
 
 BOT_USERNAME = "feedback_FCB_bot"
 LINK_CONSULT = "https://фцб.рф/яготов"
@@ -316,3 +334,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
