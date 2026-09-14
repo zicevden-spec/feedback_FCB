@@ -100,8 +100,9 @@ async def fsm_agent_question(message: Message, state: FSMContext):
     await state.clear()
 
     # Публичный пост БЕЗ персональных данных
-    public_msg = await post_to_chat(message.bot, f"{mention(message.from_user)} задал вопрос по Агентской выплате")
-    public_id = public_msg.message_id if public_msg else 0
+    # [OFF] public_msg = await post_to_chat(message.bot, f"{mention(message.from_user)} задал вопрос по Агентской выплате")
+    # [OFF] public_id = public_msg.message_id if public_msg else 0
+    public_id = 0  # заглушка, пока пост отключён
 
     pid = db.add_payout(
         message.from_user.id,
@@ -134,4 +135,5 @@ async def fsm_agent_question(message: Message, state: FSMContext):
             await message.bot.send_message(lid, card, reply_markup=kb)
         except Exception:
             pass
+
 
