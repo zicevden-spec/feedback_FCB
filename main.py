@@ -5,11 +5,18 @@ from aiogram import Bot, Dispatcher, F
 from aiogram.exceptions import TelegramForbiddenError
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message, ReplyParameters
+from aiogram.types import (
+    CallbackQuery,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    Message,
+    ReplyKeyboardRemove,
+    ReplyParameters,
+)
 
 from app import db
 from app.config import settings
-from app.keyboards import get_cancel_keyboard, get_main_menu_keyboard
+from app.keyboards import get_cancel_keyboard, get_main_menu_keyboard, get_phone_keyboard
 from app.states import LawyerStates, MyCaseStates
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -57,6 +64,8 @@ async def post_to_chat(text: str):
         return None
 
 
+# ---------- Служебные команды ----------
+
 @dp.message(CommandStart())
 async def cmd_start(message: Message):
     logger.info("/start от %s (%s)", message.from_user.id, message.from_user.username)
@@ -81,6 +90,8 @@ async def cmd_pin_menu(message: Message):
         logger.error("Не удалось закрепить: %s", e)
         await message.answer("⚠️ Меню опубликовано, но закрепить не удалось. Проверь права админа у бота в чате.")
 
+
+# ---------- Кнопки меню ----------
 
 @dp.callback_query(F.data == "consultation")
 async def cb_consultation(callback: CallbackQuery):
@@ -114,6 +125,8 @@ async def cb_stub(callback: CallbackQuery):
     await callback.answer("Раздел подключается следующим шагом 🔧", show_alert=True)
 
 
+# ---------- FSM клиента: «Хочу узнать о моем деле» ----------
+
 @dp.callback_query(F.data == "my_case")
 async def cb_my_case(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
@@ -140,14 +153,34 @@ async def fsm_fio(message: Message, state: FSMContext):
 async def fsm_city(message: Message, state: FSMContext):
     await state.update_data(city=message.text)
     await state.set_state(MyCaseStates.waiting_phone)
-    await message.answer("Шаг 3/4. Напишите ваш контактный телефон:", reply_markup=get_cancel_keyboard())
+    await message.answer(
+        "Шаг 3/4. Нажмите кнопку «📱 Поделиться номером» ниже — и телефон отправится автоматически.\n"
+        "Либо введите телефон вручную текстом:",
+        reply_markup=get_phone_keyboard(),
+    )
 
 
+# Обработчик КОНТАКТА (кнопка «Поделиться номером») — ВАЖНО: идёт ДО общего обработчика текста
+@dp.message(MyCaseStates.waiting_phone, F.contact)
+async def fsm_phone_contact(message: Message, state: FSMContext):
+    phone = message.contact.phone_number
+    await state.update_data(phone=phone)
+    await state.set_state(MyCaseStates.waiting_question)
+    await message.answer(
+        "✅ Контакт получен!\n\nШаг 4/4. Напишите ваш вопрос в свободной форме:",
+        reply_markup=ReplyKeyboardRemove(),
+    )
+
+
+# Обработчик ТЕКСТА (если пользователь ввёл телефон вручную)
 @dp.message(MyCaseStates.waiting_phone)
-async def fsm_phone(message: Message, state: FSMContext):
+async def fsm_phone_text(message: Message, state: FSMContext):
     await state.update_data(phone=message.text)
     await state.set_state(MyCaseStates.waiting_question)
-    await message.answer("Шаг 4/4. Напишите ваш вопрос в свободной форме:", reply_markup=get_cancel_keyboard())
+    await message.answer(
+        "✅ Телефон принят!\n\nШаг 4/4. Напишите ваш вопрос в свободной форме:",
+        reply_markup=ReplyKeyboardRemove(),
+    )
 
 
 @dp.message(MyCaseStates.waiting_question)
@@ -155,8 +188,11 @@ async def fsm_question(message: Message, state: FSMContext):
     data = await state.get_data()
     await state.clear()
 
-    public_msg = await post_to_chat(f"{mention(message.from_user)} задал вопрос юристу")
+    # Публичный пост теперь содержит сам вопрос
+    public_text = f"{mention(message.from_user)} задал вопрос юристу:\n\n«{message.text}»"
+    public_msg = await post_to_chat(public_text)
     public_id = public_msg.message_id if public_msg else 0
+
     qid = db.add_question(
         message.from_user.id,
         mention(message.from_user),
@@ -167,7 +203,11 @@ async def fsm_question(message: Message, state: FSMContext):
         public_id,
     )
 
-    await message.answer("✅ Вопрос передан юристу. Ответ придёт публично в общий чат — я вас уведомлю.")
+    await message.answer(
+        "✅ Вопрос передан юристу.\n"
+        "Ответ придёт публично в общий чат — я вас уведомлю.",
+        reply_markup=get_cancel_keyboard(),
+    )
 
     card = (
         f"🔔 Вопрос #{qid}\n"
@@ -190,6 +230,8 @@ async def cb_cancel(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
     await callback.message.answer("❌ Отменено. Меню остаётся доступным.")
 
+
+# ---------- Логика юриста: ответ и публикация ----------
 
 @dp.callback_query(F.data.startswith("lawyer_reply:"))
 async def cb_lawyer_reply(callback: CallbackQuery, state: FSMContext):
@@ -268,4 +310,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-

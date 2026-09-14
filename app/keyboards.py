@@ -1,4 +1,4 @@
-﻿from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+﻿from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 
@@ -17,7 +17,18 @@ def get_main_menu_keyboard() -> InlineKeyboardMarkup:
 
 
 def get_cancel_keyboard() -> InlineKeyboardMarkup:
-    """Кнопка отмены для FSM-диалогов"""
+    """Инлайн-кнопка отмены для FSM-диалогов"""
     builder = InlineKeyboardBuilder()
     builder.row(InlineKeyboardButton(text="❌ Отменить", callback_data="cancel_fsm"))
     return builder.as_markup()
+
+
+def get_phone_keyboard() -> ReplyKeyboardMarkup:
+    """Reply-клавиатура с кнопкой «Поделиться номером»"""
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="📱 Поделиться номером", request_contact=True)],
+        ],
+        resize_keyboard=True,
+        one_time_keyboard=True,
+    )
