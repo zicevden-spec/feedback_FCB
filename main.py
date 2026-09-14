@@ -120,7 +120,7 @@ async def cb_video_review(callback: CallbackQuery):
         await callback.message.answer(f"{mention(callback.from_user)}, не могу написать вам в личку. Нажмите кнопку ниже и отправьте боту /start:", reply_markup=open_bot_keyboard())
 
 
-@dp.callback_query(F.data.in_({"faq", "agent_payout"}))
+@dp.callback_query(F.data == "agent_payout")
 async def cb_stub(callback: CallbackQuery):
     await callback.answer("Раздел подключается следующим шагом 🔧", show_alert=True)
 
@@ -310,3 +310,8 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+
+from app.faq import router as faq_router
+dp.include_router(faq_router)
+
