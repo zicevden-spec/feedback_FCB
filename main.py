@@ -19,24 +19,25 @@ from app import db
 from app.config import settings
 from app.faq import router as faq_router
 from app.keyboards import get_cancel_keyboard, get_main_menu_keyboard, get_phone_keyboard
+from app.payout import router as payout_router
 from app.states import LawyerStates, MyCaseStates
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 bot = Bot(token=settings.BOT_TOKEN)
-# GLOBAL_USER: состояние диалога привязано к человеку, а не к чату.
-# Благодаря этому диалог, начатый кнопкой в группе, продолжается в личке.
 dp = Dispatcher(fsm_strategy=FSMStrategy.GLOBAL_USER)
 dp.include_router(faq_router)
+dp.include_router(payout_router)
 
-# FSM-обработчики реагируют только на сообщения в личке
 PRIVATE = F.chat.type == "private"
 
 BOT_USERNAME = "feedback_FCB_bot"
 LINK_CONSULT = "https://фцб.рф/яготов"
 LINK_REFER = "https://фцб.рф/зовисвоих"
 LINK_REVIEW_BOT = "https://t.me/uk_review_bot"
+
+ANSWER_TITLES = {"q": "Ответ юриста ФЦБ:", "p": "Ответ сотрудника ФЦБ:"}
 
 PIN_TEXT = (
     "👋 Добро пожаловать в чат клиентов ФЦБ!\n\n"
@@ -128,11 +129,6 @@ async def cb_video_review(callback: CallbackQuery):
         await callback.message.answer(f"{mention(callback.from_user)}, не могу написать вам в личку. Нажмите кнопку ниже и отправьте боту /start:", reply_markup=open_bot_keyboard())
 
 
-@dp.callback_query(F.data == "agent_payout")
-async def cb_stub(callback: CallbackQuery):
-    await callback.answer("Раздел подключается следующим шагом 🔧", show_alert=True)
-
-
 # ---------- FSM клиента: «Хочу узнать о моем деле» ----------
 
 @dp.callback_query(F.data == "my_case")
@@ -219,7 +215,7 @@ async def fsm_question(message: Message, state: FSMContext):
         f"🆔 Telegram: {mention(message.from_user)} (id {message.from_user.id})\n"
         f"❓ {message.text}"
     )
-    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="✍️ Ответить на вопрос", callback_data=f"lawyer_reply:{qid}")]])
+    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="✍️ Ответить на вопрос", callback_data=f"lawyer_reply:q:{qid}")]])
     for lid in settings.LAWYER_IDS:
         try:
             await bot.send_message(lid, card, reply_markup=kb)
@@ -234,30 +230,32 @@ async def cb_cancel(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer("❌ Отменено. Меню остаётся доступным.")
 
 
-# ---------- Логика юриста: ответ и публикация ----------
+# ---------- Логика сотрудника: ответ и публикация (универсальная) ----------
 
 @dp.callback_query(F.data.startswith("lawyer_reply:"))
 async def cb_lawyer_reply(callback: CallbackQuery, state: FSMContext):
-    qid = int(callback.data.split(":")[1])
+    parts = callback.data.split(":")
+    kind, rid = parts[1], int(parts[2])
     if callback.from_user.id not in settings.LAWYER_IDS:
         await callback.answer("Доступ запрещён", show_alert=True)
         return
     await callback.answer()
     await state.set_state(LawyerStates.waiting_answer)
-    await state.update_data(question_id=qid)
+    await state.update_data(question_kind=kind, question_id=rid)
     await callback.message.answer("Напишите ответ следующим сообщением:")
 
 
 @dp.message(LawyerStates.waiting_answer, PRIVATE)
 async def fsm_lawyer_answer(message: Message, state: FSMContext):
     data = await state.get_data()
-    qid = data.get("question_id")
+    kind = data.get("question_kind", "q")
+    rid = data.get("question_id")
     await state.clear()
-    db.save_answer(qid, message.text)
+    db.save_answer(kind, rid, message.text)
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="📢 Опубликовать в общем чате", callback_data=f"publish:{qid}")],
-            [InlineKeyboardButton(text="✏️ Переписать", callback_data=f"rewrite:{qid}")],
+            [InlineKeyboardButton(text="📢 Опубликовать в общем чате", callback_data=f"publish:{kind}:{rid}")],
+            [InlineKeyboardButton(text="✏️ Переписать", callback_data=f"rewrite:{kind}:{rid}")],
         ]
     )
     await message.answer(f"Ответ сохранён:\n\n{message.text}\n\nЧто дальше?", reply_markup=kb)
@@ -265,40 +263,42 @@ async def fsm_lawyer_answer(message: Message, state: FSMContext):
 
 @dp.callback_query(F.data.startswith("rewrite:"))
 async def cb_rewrite(callback: CallbackQuery, state: FSMContext):
-    qid = int(callback.data.split(":")[1])
+    parts = callback.data.split(":")
+    kind, rid = parts[1], int(parts[2])
     if callback.from_user.id not in settings.LAWYER_IDS:
         await callback.answer("Доступ запрещён", show_alert=True)
         return
     await callback.answer()
     await state.set_state(LawyerStates.waiting_answer)
-    await state.update_data(question_id=qid)
+    await state.update_data(question_kind=kind, question_id=rid)
     await callback.message.answer("Напишите новую версию ответа:")
 
 
 @dp.callback_query(F.data.startswith("publish:"))
 async def cb_publish(callback: CallbackQuery):
-    qid = int(callback.data.split(":")[1])
+    parts = callback.data.split(":")
+    kind, rid = parts[1], int(parts[2])
     if callback.from_user.id not in settings.LAWYER_IDS:
         await callback.answer("Доступ запрещён", show_alert=True)
         return
-    q = db.get_question(qid)
-    if not q or not q["answer_text"]:
+    rec = db.get_record(kind, rid)
+    if not rec or not rec["answer_text"]:
         await callback.answer("Ответ не найден", show_alert=True)
         return
-    text = f"Ответ юриста ФЦБ:\n\n{q['answer_text']}"
+    text = f"{ANSWER_TITLES.get(kind, 'Ответ ФЦБ:')}\n\n{rec['answer_text']}"
     try:
-        if q["public_message_id"]:
-            await bot.send_message(settings.CHAT_ID, text, reply_parameters=ReplyParameters(message_id=q["public_message_id"]))
+        if rec["public_message_id"]:
+            await bot.send_message(settings.CHAT_ID, text, reply_parameters=ReplyParameters(message_id=rec["public_message_id"]))
         else:
             await bot.send_message(settings.CHAT_ID, text)
     except Exception as e:
         logger.error("Не удалось опубликовать: %s", e)
         await callback.answer("Не удалось опубликовать в чат (возможно, пост удалён)", show_alert=True)
         return
-    db.mark_published(qid)
-    await callback.message.edit_text(f"✅ Вопрос #{qid} опубликован в общем чате.")
+    db.mark_published(kind, rid)
+    await callback.message.edit_text(f"✅ Обращение #{rid} опубликовано в общем чате.")
     try:
-        await bot.send_message(q["client_user_id"], "🎉 Юрист ответил на ваш вопрос в общем чате! Загляните посмотреть.")
+        await bot.send_message(rec["client_user_id"], "🎉 Сотрудник ФЦБ ответил на ваш вопрос в общем чате! Загляните посмотреть.")
     except Exception:
         pass
     await callback.answer("Опубликовано!")
