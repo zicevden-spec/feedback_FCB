@@ -134,7 +134,7 @@ async def cb_consultation(callback: CallbackQuery):
 @dp.callback_query(F.data == "refer_friend")
 async def cb_refer_friend(callback: CallbackQuery):
     await callback.answer()
-    await post_to_chat(f"{mention(callback.from_user)} хочет помочь близкому и перешел по ссылке фцб.рф/зовисвоих")
+    # [OFF] await post_to_chat(f"{mention(callback.from_user)} хочет помочь близкому и перешел по ссылке фцб.рф/зовисвоих")
     uid = callback.from_user.id
     ref_link = f"{LINK_REFER}?ref={uid}"
     kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -350,6 +350,7 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
 
 
