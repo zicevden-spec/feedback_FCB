@@ -35,7 +35,7 @@ dp.include_router(admin_router)
 
 PRIVATE = F.chat.type == "private"
 
-BLOCKED_OUTSIDE_HOURS = {"consultation", "my_case", "refer_friend", "video_review", "agent_payout"}
+BLOCKED_OUTSIDE_HOURS = {"consultation", "my_case", "refer_friend", "agent_payout"}
 
 BOT_USERNAME = "feedback_FCB_bot"
 LINK_CONSULT = "https://фцб.рф/яготов"
@@ -357,3 +357,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
