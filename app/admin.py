@@ -105,7 +105,13 @@ async def fsm_admin_target(message: Message, state: FSMContext):
         await message.answer("⛔ Этот пользователь уже супер-админ — его роль изменить нельзя.")
         return
 
-    db.set_role(user_id, target_role, message.from_user.id)
+    uname = text if text.startswith("@") else ""
+    try:
+        chat = await message.bot.get_chat(user_id)
+        uname = chat.username or uname
+    except Exception:
+        pass
+    db.set_role(user_id, target_role, message.from_user.id, uname)
     await state.clear()
     title = roles.ROLE_TITLES[target_role]
     await message.answer(f"✅ Готово: пользователю {user_id} назначена роль «{title}».")
@@ -218,3 +224,4 @@ async def cb_admin_export(callback: CallbackQuery):
         BufferedInputFile(data, filename=fname),
         caption="📥 Отчёт ФЦБ: статистика, вопросы, выплаты, сотрудники",
     )
+

@@ -15,7 +15,7 @@ from aiogram.types import (
     ReplyParameters,
 )
 
-from app import db, roles, worktime
+from app import audit, db, roles, worktime
 from app.admin import router as admin_router
 from app.config import settings
 from app.faq import router as faq_router
@@ -271,7 +271,7 @@ async def fsm_lawyer_answer(message: Message, state: FSMContext):
     kind = data.get("question_kind", "q")
     rid = data.get("question_id")
     await state.clear()
-    db.save_answer(kind, rid, message.text)
+    db.save_answer(kind, rid, message.text, message.from_user.id, mention(message.from_user))
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="📢 Опубликовать в общем чате", callback_data=f"publish:{kind}:{rid}")],
@@ -334,6 +334,7 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
 
 
