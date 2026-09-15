@@ -19,11 +19,7 @@ MIGRATIONS = {
         ("answer_by_username", "TEXT"),
         ("comment", "TEXT DEFAULT ''"),
     ],
-    "referrals": [
-        ("referred_phone", "TEXT DEFAULT ''"),
-        ("registered_at", "TEXT"),
-    ],
-    "users": [
+"users": [
         ("username", "TEXT DEFAULT ''"),
     ],
 }
@@ -243,3 +239,4 @@ def register_lead(ref_id, phone, name=""):
             (ref_id, 0, name, phone),
         )
         return ref_id, True
+
