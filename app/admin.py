@@ -1,8 +1,10 @@
-﻿from aiogram import F, Router
-from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
+﻿from datetime import datetime
 
-from app import db, roles
+from aiogram import F, Router
+from aiogram.fsm.context import FSMContext
+from aiogram.types import BufferedInputFile, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
+
+from app import db, export, roles
 from app.keyboards import get_cancel_keyboard
 from app.states import AdminStates
 
@@ -19,6 +21,7 @@ def admin_menu_keyboard():
     return _kb([
         [InlineKeyboardButton(text="👥 Сотрудники", callback_data="admin_staff")],
         [InlineKeyboardButton(text="📊 Статистика", callback_data="admin_stats")],
+        [InlineKeyboardButton(text="📥 Выгрузить отчёт (Excel)", callback_data="admin_export")],
         [InlineKeyboardButton(text="⬅️ Главное меню", callback_data="main_menu")],
     ])
 
@@ -199,4 +202,19 @@ async def cb_admin_stats(callback: CallbackQuery):
             [InlineKeyboardButton(text="🔄 Обновить", callback_data="admin_stats")],
             [InlineKeyboardButton(text="⬅️ Назад", callback_data="admin_panel")],
         ]),
+    )
+
+
+
+@router.callback_query(F.data == "admin_export")
+async def cb_admin_export(callback: CallbackQuery):
+    if not roles.can_manage(callback.from_user.id):
+        await callback.answer("Доступ запрещён", show_alert=True)
+        return
+    await callback.answer("Формирую отчёт...")
+    data = export.build_report_xlsx()
+    fname = "FCB_report_" + datetime.now().strftime("%Y-%m-%d_%H%M") + ".xlsx"
+    await callback.message.answer_document(
+        BufferedInputFile(data, filename=fname),
+        caption="📥 Отчёт ФЦБ: статистика, вопросы, выплаты, сотрудники",
     )
