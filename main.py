@@ -158,7 +158,8 @@ async def cb_refer_friend(callback: CallbackQuery):
 @dp.callback_query(F.data == "video_review")
 async def cb_video_review(callback: CallbackQuery):
     await callback.answer()
-    await post_to_chat(f"{mention(callback.from_user)} участвует в конкурсе видеотзывов @uk_review_bot")
+    if worktime.is_working_now():
+        await post_to_chat(f"{mention(callback.from_user)} участвует в конкурсе видеотзывов @uk_review_bot")
     ok = await send_private(callback.from_user.id, "Нажмите кнопку ниже — она откроет бот конкурса видеотзывов:", reply_markup=get_url_keyboard("🎥 Перейти в бот видеотзывов", LINK_REVIEW_BOT))
     if not ok:
         await callback.message.answer(f"{mention(callback.from_user)}, не могу написать вам в личку. Нажмите кнопку ниже и отправьте боту /start:", reply_markup=open_bot_keyboard())
@@ -357,4 +358,5 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
