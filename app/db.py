@@ -19,6 +19,10 @@ MIGRATIONS = {
         ("answer_by_username", "TEXT"),
         ("comment", "TEXT DEFAULT ''"),
     ],
+    "referrals": [
+        ("referred_phone", "TEXT DEFAULT ''"),
+        ("registered_at", "TEXT"),
+    ],
     "users": [
         ("username", "TEXT DEFAULT ''"),
     ],
@@ -217,3 +221,25 @@ def list_events(limit=2000):
     with get_conn() as conn:
         rows = conn.execute("SELECT * FROM events ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
         return [dict(r) for r in rows]
+
+
+
+def register_lead(ref_id, phone, name=""):
+    """Вебхук с лендинга: регистрация по реф-ссылке. Возвращает (referrer_id, created)."""
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT * FROM referrals WHERE referrer_id=? AND referred_phone=?",
+            (ref_id, phone),
+        ).fetchone()
+        if row:
+            if not row["registered_at"]:
+                conn.execute(
+                    "UPDATE referrals SET registered_at=datetime('now','localtime') WHERE id=?",
+                    (row["id"],),
+                )
+            return row["referrer_id"], False
+        conn.execute(
+            "INSERT INTO referrals (referrer_id, referred_id, referred_username, referred_phone, registered_at) VALUES (?,?,?,?,datetime('now','localtime'))",
+            (ref_id, 0, name, phone),
+        )
+        return ref_id, True

@@ -89,3 +89,4 @@ def build_report_xlsx() -> bytes:
     buf = BytesIO()
     wb.save(buf)
     return buf.getvalue()
+

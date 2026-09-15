@@ -15,7 +15,7 @@ from aiogram.types import (
     ReplyParameters,
 )
 
-from app import audit, db, roles, worktime
+from app import audit, db, roles, webapi, worktime
 from app.admin import router as admin_router
 from app.config import settings
 from app.faq import router as faq_router
@@ -327,6 +327,7 @@ async def cb_publish(callback: CallbackQuery):
 async def main():
     db.init_db()
     roles.seed_super_admins()
+    await webapi.start(bot)
     logger.info("Запуск бота...")
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
@@ -334,6 +335,7 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
 
 
