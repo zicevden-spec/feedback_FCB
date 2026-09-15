@@ -1,5 +1,6 @@
 ﻿import asyncio
 import logging
+from urllib.parse import quote
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.exceptions import TelegramForbiddenError
@@ -34,23 +35,7 @@ dp.include_router(admin_router)
 
 PRIVATE = F.chat.type == "private"
 
-# Кнопки, которые не принимаются вне рабочих часов
 BLOCKED_OUTSIDE_HOURS = {"consultation", "my_case", "refer_friend", "video_review", "agent_payout"}
-
-
-@dp.callback_query.outer_middleware()
-async def worktime_guard(handler, event, data):
-    """Вне рабочих часов блокирует кнопки, требующие участия сотрудников."""
-    if event.data in BLOCKED_OUTSIDE_HOURS and not worktime.is_working_now():
-        await event.answer()
-        kb = InlineKeyboardMarkup(
-            inline_keyboard=[[InlineKeyboardButton(text="📚 Открыть FAQ", callback_data="faq")]]
-        )
-        ok = await send_private(event.from_user.id, worktime.closed_text(), reply_markup=kb)
-        if not ok:
-            await event.message.answer(worktime.closed_text(), reply_markup=kb)
-        return None
-    return await handler(event, data)
 
 BOT_USERNAME = "feedback_FCB_bot"
 LINK_CONSULT = "https://фцб.рф/яготов"
@@ -65,6 +50,21 @@ PIN_TEXT = (
     "📌 Как это работает: нажмите нужную кнопку ниже — бот напишет вам в личные сообщения и проведёт по шагам. Личные данные остаются конфиденциальными: в общий чат попадает только короткое уведомление.\n\n"
     "Выбирайте раздел:"
 )
+
+
+@dp.callback_query.outer_middleware()
+async def worktime_guard(handler, event, data):
+    audit.log_callback(event)
+    if event.data in BLOCKED_OUTSIDE_HOURS and not worktime.is_working_now():
+        await event.answer()
+        kb = InlineKeyboardMarkup(
+            inline_keyboard=[[InlineKeyboardButton(text="📚 Открыть FAQ", callback_data="faq")]]
+        )
+        ok = await send_private(event.from_user.id, worktime.closed_text(), reply_markup=kb)
+        if not ok:
+            await event.message.answer(worktime.closed_text(), reply_markup=kb)
+        return None
+    return await handler(event, data)
 
 
 def mention(user) -> str:
@@ -93,11 +93,14 @@ async def post_to_chat(text: str):
         return None
 
 
-# ---------- Служебные команды ----------
-
 @dp.message(CommandStart())
 async def cmd_start(message: Message):
     logger.info("/start от %s (%s)", message.from_user.id, message.from_user.username)
+    payload = message.text.split(" ", 1)[1].strip() if message.text and " " in message.text else ""
+    if payload.startswith("ref_") and payload[4:].isdigit():
+        ref_id = int(payload[4:])
+        if ref_id != message.from_user.id:
+            db.add_referral(ref_id, message.from_user.id, mention(message.from_user))
     await message.answer(
         f"Привет, {message.from_user.full_name}! 👋\n"
         "Я помощник чата клиентов ФЦБ.\n"
@@ -119,8 +122,6 @@ async def cmd_pin_menu(message: Message):
         logger.error("Не удалось закрепить: %s", e)
         await message.answer("⚠️ Меню опубликовано, но закрепить не удалось. Проверь права админа у бота в чате.")
 
-
-# ---------- Кнопки меню ----------
 
 @dp.callback_query(F.data == "consultation")
 async def cb_consultation(callback: CallbackQuery):
@@ -144,17 +145,16 @@ async def cb_refer_friend(callback: CallbackQuery):
     ])
     ok = await send_private(
         callback.from_user.id,
-        f"🤝 Реферальная программа ФЦБ\n\n"
-        f"Помогите близкому списать долги — и получите вознаграждение.\n\n"
+        "🤝 Реферальная программа ФЦБ\n\n"
+        "Помогите близкому списать долги — и получите вознаграждение.\n\n"
         f"🔗 Ваша личная ссылка:\n{ref_link}\n\n"
-        f"Когда близкий перейдёт по ней и запустит бота — он запишется на ваш счёт.",
+        "Когда близкий перейдёт по ней и зарегистрируется — он запишется на ваш счёт.",
         reply_markup=kb,
     )
     if not ok:
-        await callback.message.answer(
-            f"{mention(callback.from_user)}, не могу написать вам в личку. Нажмите кнопку ниже и отправьте боту /start:",
-            reply_markup=open_bot_keyboard(),
-        )
+        await callback.message.answer(f"{mention(callback.from_user)}, не могу написать вам в личку. Нажмите кнопку ниже и отправьте боту /start:", reply_markup=open_bot_keyboard())
+
+
 @dp.callback_query(F.data == "video_review")
 async def cb_video_review(callback: CallbackQuery):
     await callback.answer()
@@ -163,8 +163,6 @@ async def cb_video_review(callback: CallbackQuery):
     if not ok:
         await callback.message.answer(f"{mention(callback.from_user)}, не могу написать вам в личку. Нажмите кнопку ниже и отправьте боту /start:", reply_markup=open_bot_keyboard())
 
-
-# ---------- FSM клиента: «Хочу узнать о моем деле» ----------
 
 @dp.callback_query(F.data == "my_case")
 async def cb_my_case(callback: CallbackQuery, state: FSMContext):
@@ -265,8 +263,6 @@ async def cb_cancel(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer("❌ Отменено. Меню остаётся доступным.")
 
 
-# ---------- Логика сотрудника: ответ и публикация (универсальная) ----------
-
 @dp.callback_query(F.data.startswith("lawyer_reply:"))
 async def cb_lawyer_reply(callback: CallbackQuery, state: FSMContext):
     parts = callback.data.split(":")
@@ -339,6 +335,17 @@ async def cb_publish(callback: CallbackQuery):
     await callback.answer("Опубликовано!")
 
 
+@dp.callback_query(F.data == "my_refs")
+async def cb_my_refs(callback: CallbackQuery):
+    await callback.answer()
+    refs = db.list_refs(callback.from_user.id)
+    if not refs:
+        await send_private(callback.from_user.id, "Пока никто не перешёл по вашей ссылке.\nПоделитесь личной ссылкой — и рефералы появятся здесь!")
+        return
+    lines = [f"• {r['referred_username'] or r['referred_id']} — {r['created_at'][:10]}" for r in refs[:10]]
+    await send_private(callback.from_user.id, f"📊 Ваши рефералы: {len(refs)}\n\nПоследние:\n" + "\n".join(lines))
+
+
 async def main():
     db.init_db()
     roles.seed_super_admins()
@@ -350,14 +357,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-
-
-
-
-
-
-
-
-
-
