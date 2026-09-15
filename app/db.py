@@ -40,6 +40,7 @@ def _migrate(conn):
 
 
 def init_db():
+    create_referrals_table()
     with get_conn() as conn:
         conn.execute(
             """
@@ -239,4 +240,21 @@ def register_lead(ref_id, phone, name=""):
             (ref_id, 0, name, phone),
         )
         return ref_id, True
+
+
+
+def create_referrals_table():
+    """Создаёт таблицу referrals, если её нет."""
+    with get_conn() as conn:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS referrals (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                referrer_id INTEGER,
+                referred_id INTEGER,
+                referred_username TEXT,
+                referred_phone TEXT DEFAULT '',
+                registered_at TEXT,
+                created_at TEXT DEFAULT (datetime('now', 'localtime'))
+            )
+        """)
 
