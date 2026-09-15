@@ -134,12 +134,27 @@ async def cb_consultation(callback: CallbackQuery):
 @dp.callback_query(F.data == "refer_friend")
 async def cb_refer_friend(callback: CallbackQuery):
     await callback.answer()
-    # [OFF] await post_to_chat(f"{mention(callback.from_user)} хочет помочь близкому и перешел по ссылке фцб.рф/зовисвоих")
-    ok = await send_private(callback.from_user.id, "Нажмите кнопку ниже — она откроет лендинг «Зови своих»:", reply_markup=get_url_keyboard("🚀 Перейти на лендинг «Зови своих»", LINK_REFER))
+    await post_to_chat(f"{mention(callback.from_user)} хочет помочь близкому и перешел по ссылке фцб.рф/зовисвоих")
+    uid = callback.from_user.id
+    ref_link = f"{LINK_REFER}?ref={uid}"
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📤 Поделиться ссылкой", url=f"https://t.me/share/url?url={ref_link}&text={quote('Помоги близкому списать долги вместе с ФЦБ!')}")],
+        [InlineKeyboardButton(text="🚀 Перейти на лендинг «Зови своих»", url=LINK_REFER)],
+        [InlineKeyboardButton(text="📊 Мои рефералы", callback_data="my_refs")],
+    ])
+    ok = await send_private(
+        callback.from_user.id,
+        f"🤝 Реферальная программа ФЦБ\n\n"
+        f"Помогите близкому списать долги — и получите вознаграждение.\n\n"
+        f"🔗 Ваша личная ссылка:\n{ref_link}\n\n"
+        f"Когда близкий перейдёт по ней и запустит бота — он запишется на ваш счёт.",
+        reply_markup=kb,
+    )
     if not ok:
-        await callback.message.answer(f"{mention(callback.from_user)}, не могу написать вам в личку. Нажмите кнопку ниже и отправьте боту /start:", reply_markup=open_bot_keyboard())
-
-
+        await callback.message.answer(
+            f"{mention(callback.from_user)}, не могу написать вам в личку. Нажмите кнопку ниже и отправьте боту /start:",
+            reply_markup=open_bot_keyboard(),
+        )
 @dp.callback_query(F.data == "video_review")
 async def cb_video_review(callback: CallbackQuery):
     await callback.answer()
@@ -335,6 +350,8 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+
 
 
 
