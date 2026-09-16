@@ -5,7 +5,8 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import BufferedInputFile, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from app import db, export, roles
-from app.keyboards import get_cancel_keyboard
+from app.config import settings
+from app.keyboards import get_cancel_keyboard, get_main_menu_keyboard
 from app.states import AdminStates
 
 router = Router()
@@ -22,6 +23,7 @@ def admin_menu_keyboard():
         [InlineKeyboardButton(text="👥 Сотрудники", callback_data="admin_staff")],
         [InlineKeyboardButton(text="📊 Статистика", callback_data="admin_stats")],
         [InlineKeyboardButton(text="📥 Выгрузить отчёт (Excel)", callback_data="admin_export")],
+        [InlineKeyboardButton(text="📌 Опубликовать меню в закреп", callback_data="admin_pin_menu")],
         [InlineKeyboardButton(text="⬅️ Главное меню", callback_data="main_menu")],
     ])
 
@@ -225,3 +227,19 @@ async def cb_admin_export(callback: CallbackQuery):
         caption="📥 Отчёт ФЦБ: статистика, вопросы, выплаты, сотрудники",
     )
 
+
+
+
+@router.callback_query(F.data == "admin_pin_menu")
+async def cb_admin_pin_menu(callback: CallbackQuery):
+    if not roles.can_manage(callback.from_user.id):
+        await callback.answer("Доступ запрещён", show_alert=True)
+        return
+    import main as main_module
+    await callback.answer("Публикую и закрепляю...")
+    msg = await callback.bot.send_message(settings.CHAT_ID, main_module.PIN_TEXT, reply_markup=get_main_menu_keyboard())
+    try:
+        await callback.bot.pin_chat_message(settings.CHAT_ID, msg.message_id, disable_notification=True)
+        await callback.message.answer("✅ Меню опубликовано и закреплено в чате.")
+    except Exception as e:
+        await callback.message.answer(f"⚠️ Меню опубликовано, но закрепить не удалось: {e}")
