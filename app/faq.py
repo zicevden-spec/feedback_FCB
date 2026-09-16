@@ -109,7 +109,7 @@ async def cb_faq_menu(callback: CallbackQuery):
     await callback.answer()
     ok = await send_private(callback.bot, callback.from_user.id, FAQ_MENU_TEXT, faq_menu_keyboard())
     if not ok:
-        await callback.message.answer("Не могу написать вам в личку. Нажмите кнопку ниже и отправьте боту /start:", reply_markup=open_bot_keyboard())
+        await callback.message.answer("Чтобы продолжать получать информацию, перейдите в бота:", reply_markup=open_bot_keyboard())
 
 
 @router.callback_query(F.data.startswith("faq_item:"))
@@ -122,7 +122,7 @@ async def cb_faq_item(callback: CallbackQuery):
     await callback.answer()
     ok = await send_private(callback.bot, callback.from_user.id, item["answer"], faq_item_keyboard())
     if not ok:
-        await callback.message.answer("Не могу написать вам в личку. Нажмите кнопку ниже и отправьте боту /start:", reply_markup=open_bot_keyboard())
+        await callback.message.answer("Чтобы продолжать получать информацию, перейдите в бота:", reply_markup=open_bot_keyboard())
 
 
 @router.callback_query(F.data == "main_menu")
@@ -130,5 +130,6 @@ async def cb_main_menu(callback: CallbackQuery):
     await callback.answer()
     ok = await send_private(callback.bot, callback.from_user.id, "Выберите нужный раздел:", get_main_menu_keyboard(roles.can_manage(callback.from_user.id)))
     if not ok:
-        await callback.message.answer("Не могу написать вам в личку. Нажмите кнопку ниже и отправьте боту /start:", reply_markup=open_bot_keyboard())
+        await callback.message.answer("Чтобы продолжать получать информацию, перейдите в бота:", reply_markup=open_bot_keyboard())
+
 

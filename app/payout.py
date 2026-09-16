@@ -51,7 +51,7 @@ async def cb_agent_payout(callback: CallbackQuery, state: FSMContext):
     )
     if not ok:
         await state.clear()
-        await callback.message.answer(f"{mention(callback.from_user)}, не могу написать вам в личку. Нажмите кнопку ниже и отправьте боту /start:", reply_markup=open_bot_keyboard())
+        await callback.message.answer(f"{mention(callback.from_user)}, чтобы продолжать получать информацию, перейдите в бота:", reply_markup=open_bot_keyboard())
 
 
 @router.message(AgentPayoutStates.waiting_agent_fio, PRIVATE)
@@ -135,5 +135,6 @@ async def fsm_agent_question(message: Message, state: FSMContext):
             await message.bot.send_message(lid, card, reply_markup=kb)
         except Exception:
             pass
+
 
 

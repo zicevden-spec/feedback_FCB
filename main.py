@@ -129,7 +129,7 @@ async def cb_consultation(callback: CallbackQuery):
     # [OFF] await post_to_chat(f"{mention(callback.from_user)} хочет получить консультацию юриста по банкротству и перешел по ссылке фцб.рф/яготов")
     ok = await send_private(callback.from_user.id, "Нажмите кнопку ниже — она откроет лендинг «Я готов»:", reply_markup=get_url_keyboard("🚀 Перейти на лендинг «Я готов»", LINK_CONSULT))
     if not ok:
-        await callback.message.answer(f"{mention(callback.from_user)}, не могу написать вам в личку. Нажмите кнопку ниже и отправьте боту /start:", reply_markup=open_bot_keyboard())
+        await callback.message.answer(f"{mention(callback.from_user)}, чтобы продолжать получать информацию, перейдите в бота:", reply_markup=open_bot_keyboard())
 
 
 @dp.callback_query(F.data == "refer_friend")
@@ -152,7 +152,7 @@ async def cb_refer_friend(callback: CallbackQuery):
         reply_markup=kb,
     )
     if not ok:
-        await callback.message.answer(f"{mention(callback.from_user)}, не могу написать вам в личку. Нажмите кнопку ниже и отправьте боту /start:", reply_markup=open_bot_keyboard())
+        await callback.message.answer(f"{mention(callback.from_user)}, чтобы продолжать получать информацию, перейдите в бота:", reply_markup=open_bot_keyboard())
 
 
 @dp.callback_query(F.data == "video_review")
@@ -162,7 +162,7 @@ async def cb_video_review(callback: CallbackQuery):
         await post_to_chat(f"{mention(callback.from_user)} участвует в конкурсе видеотзывов @uk_review_bot")
     ok = await send_private(callback.from_user.id, "Нажмите кнопку ниже — она откроет бот конкурса видеотзывов:", reply_markup=get_url_keyboard("🎥 Перейти в бот видеотзывов", LINK_REVIEW_BOT))
     if not ok:
-        await callback.message.answer(f"{mention(callback.from_user)}, не могу написать вам в личку. Нажмите кнопку ниже и отправьте боту /start:", reply_markup=open_bot_keyboard())
+        await callback.message.answer(f"{mention(callback.from_user)}, чтобы продолжать получать информацию, перейдите в бота:", reply_markup=open_bot_keyboard())
 
 
 @dp.callback_query(F.data == "my_case")
@@ -177,7 +177,7 @@ async def cb_my_case(callback: CallbackQuery, state: FSMContext):
     )
     if not ok:
         await state.clear()
-        await callback.message.answer(f"{mention(callback.from_user)}, не могу написать вам в личку. Нажмите кнопку ниже, отправьте /start и выберите «Хочу узнать о моем деле» в меню:", reply_markup=open_bot_keyboard())
+        await callback.message.answer(f"{mention(callback.from_user)}, чтобы продолжать получать информацию, перейдите в бота:", reply_markup=open_bot_keyboard())
 
 
 @dp.message(MyCaseStates.waiting_fio, PRIVATE)
@@ -358,5 +358,6 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
 
