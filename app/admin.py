@@ -235,11 +235,13 @@ async def cb_admin_pin_menu(callback: CallbackQuery):
     if not roles.can_manage(callback.from_user.id):
         await callback.answer("Доступ запрещён", show_alert=True)
         return
-    import main as main_module
     await callback.answer("Публикую и закрепляю...")
-    msg = await callback.bot.send_message(settings.CHAT_ID, main_module.PIN_TEXT, reply_markup=get_main_menu_keyboard())
-    try:
-        await callback.bot.pin_chat_message(settings.CHAT_ID, msg.message_id, disable_notification=True)
+    from app.config import settings as _settings
+    from app.pin import publish_pin_menu
+    ok, err = await publish_pin_menu(callback.bot, _settings.CHAT_ID)
+    if ok and err is None:
         await callback.message.answer("✅ Меню опубликовано и закреплено в чате.")
-    except Exception as e:
-        await callback.message.answer(f"⚠️ Меню опубликовано, но закрепить не удалось: {e}")
+    elif ok:
+        await callback.message.answer("✅ Меню опубликовано, но закрепить не удалось: " + str(err))
+    else:
+        await callback.message.answer("⚠️ Не удалось опубликовать меню: " + str(err))
